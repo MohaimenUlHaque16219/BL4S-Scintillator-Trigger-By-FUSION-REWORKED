@@ -1,7 +1,7 @@
 # BL4S 2025 — Scintillator Trigger Detector Simulation
 
 **Competition:** Beamline for Schools (BL4S) by CERN  
-**Team:** [Your Team Name]  
+**Team:** FUSION REWORKED
 **Institution:** [Your School/Institution]  
 **Country:** Bangladesh  
 
