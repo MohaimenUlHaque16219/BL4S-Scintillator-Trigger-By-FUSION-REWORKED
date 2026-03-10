@@ -42,7 +42,7 @@ Beam direction (+Z) →
 | Beam momentum | 0.5 — 10.0 GeV/c |
 | Beam profile | Gaussian, σ = 5mm |
 | Scintillator material | G4_PLASTIC_SC_VINYLTOLUENE |
-| Scintillator dimensions | 200 × 200 × 10 mm |
+| Scintillator dimensions | 50 × 50 × 10 mm |
 | Layer positions (Z) | 100 mm, 400 mm, 700 mm |
 | Virtual detector offset | 6 mm upstream of each layer |
 | Events per run | 5000 |
