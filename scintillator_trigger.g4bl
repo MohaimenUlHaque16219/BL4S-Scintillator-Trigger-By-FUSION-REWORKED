@@ -24,32 +24,32 @@ param beam_sigmaX=5.0
 param beam_sigmaY=5.0
 
 # --- World Volume ---
-box World width=600 height=600 length=2000 material=Vacuum color=invisible
+box World width=300 height=300 length=2000 material=Vacuum color=invisible
 
 # --- Scintillator Detector Layers ---
-# 3 plastic scintillator slabs, 200x200mm face, 10mm thick
+# 3 plastic scintillator slabs, 50x50mm face, 10mm thick
 # Positions: 100mm, 400mm, 700mm along beamline
 
-box Det1_shape width=200 height=200 length=10 material=G4_PLASTIC_SC_VINYLTOLUENE color=0.2,0.8,1.0
+box Det1_shape width=50 height=50 length=10 material=G4_PLASTIC_SC_VINYLTOLUENE color=0.2,0.8,1.0
 place Det1_shape z=100 rename=Det1
 
-box Det2_shape width=200 height=200 length=10 material=G4_PLASTIC_SC_VINYLTOLUENE color=0.8,0.4,1.0
+box Det2_shape width=50 height=50 length=10 material=G4_PLASTIC_SC_VINYLTOLUENE color=0.8,0.4,1.0
 place Det2_shape z=400 rename=Det2
 
-box Det3_shape width=200 height=200 length=10 material=G4_PLASTIC_SC_VINYLTOLUENE color=1.0,0.5,0.2
+box Det3_shape width=50 height=50 length=10 material=G4_PLASTIC_SC_VINYLTOLUENE color=1.0,0.5,0.2
 place Det3_shape z=700 rename=Det3
 
 # --- Virtual Detectors ---
 # Placed 6mm upstream of each scintillator to avoid geometry overlap
 # Records every particle crossing without stopping them
 
-virtualdetector Det1_vd width=200 height=200 length=1 material=Vacuum file=det1.txt
+virtualdetector Det1_vd width=50 height=50 length=1 material=Vacuum file=det1.txt
 place Det1_vd z=94
 
-virtualdetector Det2_vd width=200 height=200 length=1 material=Vacuum file=det2.txt
+virtualdetector Det2_vd width=50 height=50 length=1 material=Vacuum file=det2.txt
 place Det2_vd z=394
 
-virtualdetector Det3_vd width=200 height=200 length=1 material=Vacuum file=det3.txt
+virtualdetector Det3_vd width=50 height=50 length=1 material=Vacuum file=det3.txt
 place Det3_vd z=694
 
 # --- Beam: pi+ Gaussian beam ---

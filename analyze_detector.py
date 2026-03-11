@@ -224,9 +224,204 @@ def plot_secondary(rates):
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
+def compute_dead_time_fraction(particles_per_spill_array, tau_ns=50.0):
+    """
+    Dead time fraction = fraction of beam spill time the detector is "blind"
+    after recording a hit (non-paralyzable / extending dead time model).
+
+    Formula (non-paralyzable):
+        D = rate * tau / (1 + rate * tau)
+
+    Where:
+        rate     = particles per spill / spill duration
+        tau      = detector dead time per hit (ns)
+        spill    = typical CERN PS/SPS spill duration = 400 ms = 4e8 ns
+
+    Parameters:
+        particles_per_spill : array of beam intensities to sweep
+        tau_ns              : detector dead time in nanoseconds (default 50 ns
+                              — typical for plastic scintillator + electronics)
+    """
+    spill_duration_ns = 400e6   # 400 ms in nanoseconds (typical CERN spill)
+    dead_fractions = []
+
+    for n in particles_per_spill_array:
+        rate = n / spill_duration_ns          # particles per ns
+        d    = (rate * tau_ns) / (1 + rate * tau_ns)  # non-paralyzable model
+        dead_fractions.append(d)
+
+    return np.array(dead_fractions)
+
+
+def plot_dead_time(particles_array, dead_fractions):
+    fig, ax = plt.subplots(figsize=(7, 4.5), facecolor="#050810")
+
+    ax.semilogx(particles_array, dead_fractions * 100,
+                "-", color="#ffd60a", lw=2.5)
+    ax.fill_between(particles_array, dead_fractions * 100,
+                    alpha=0.1, color="#ffd60a")
+
+    # Mark 10% and 50% dead time lines
+    ax.axhline(y=10, color="#ff6b6b", linestyle="--", lw=1, alpha=0.7,
+               label="10% dead time")
+    ax.axhline(y=50, color="#ff4444", linestyle="--", lw=1, alpha=0.7,
+               label="50% dead time")
+
+    ax.legend(facecolor="#0d1117", edgecolor="#1e2a38",
+              labelcolor="#aac4dd", fontsize=9)
+
+    ax.set_xlim(particles_array[0], particles_array[-1])
+    ax.set_ylim(0, 100)
+    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f%%'))
+
+    style(ax, "Particles per Spill", "Dead Time Fraction (%)",
+          "Detector Dead Time Fraction vs Beam Intensity\n"
+          r"$\tau$ = 50 ns  |  Spill = 400 ms  |  Non-paralyzable model")
+
+    fig.tight_layout()
+    path = os.path.join(PLOT_DIR, "dead_time_vs_intensity.png")
+    fig.savefig(path, dpi=150, facecolor="#050810")
+    print(f"  Saved: {path}")
+    plt.close(fig)
+
+
+def run_dead_time_analysis():
+    # Sweep from 10^4 to 10^6 particles per spill
+    particles = np.logspace(4, 6, 300)
+    dead_fractions = compute_dead_time_fraction(particles, tau_ns=50.0)
+    plot_dead_time(particles, dead_fractions)
+
+    # Print key values
+    print("\n  Dead Time Summary (tau=50ns, spill=400ms):")
+    print(f"  {'Particles/spill':>16}  {'Dead Time':>10}")
+    print(f"  {'-'*16}  {'-'*10}")
+    for n in [1e4, 5e4, 1e5, 5e5, 1e6]:
+        rate = n / 400e6
+        d = (rate * 50) / (1 + rate * 50)
+        print(f"  {n:>16.0e}  {d*100:>9.2f}%")
+
+# ── Detector Response vs Beam Energy ──────────────────────────────────────────
+
+def compute_detector_response(momentum):
+    """
+    Average total momentum of ALL hits in each detector layer.
+    Represents the mean signal strength seen by each scintillator.
+    Higher energy beam → higher momentum hits → stronger detector response.
+    """
+    responses = []
+    for det_file in ["det1.txt", "det2.txt", "det3.txt"]:
+        h = load_hits(os.path.join(run_dir(momentum), det_file))
+        if h is not None:
+            p_total = total_momentum(h)
+            responses.append(np.mean(p_total) / 1000.0)  # Convert to GeV/c
+        else:
+            responses.append(np.nan)
+    return responses  # [det1_mean, det2_mean, det3_mean]
+
+
+def plot_detector_response(x_vals, responses_per_momentum):
+    """
+    responses_per_momentum: list of [det1, det2, det3] for each momentum
+    """
+    fig, ax = plt.subplots(figsize=(7, 4.5), facecolor="#050810")
+
+    det1 = [r[0] for r in responses_per_momentum]
+    det2 = [r[1] for r in responses_per_momentum]
+    det3 = [r[2] for r in responses_per_momentum]
+
+    ax.plot(x_vals, det1, "o-", color="#00e5ff", lw=2, markersize=7,
+            markerfacecolor="#050810", markeredgewidth=2, label="Det 1 (z=100mm)")
+    ax.plot(x_vals, det2, "s-", color="#bf5af2", lw=2, markersize=7,
+            markerfacecolor="#050810", markeredgewidth=2, label="Det 2 (z=400mm)")
+    ax.plot(x_vals, det3, "^-", color="#ff6b6b", lw=2, markersize=7,
+            markerfacecolor="#050810", markeredgewidth=2, label="Det 3 (z=700mm)")
+
+    ax.legend(facecolor="#0d1117", edgecolor="#1e2a38",
+              labelcolor="#aac4dd", fontsize=9)
+
+    style(ax, "Beam Momentum (GeV/c)", "Mean Hit Momentum (GeV/c)",
+          "Detector Response vs Beam Energy\n(Mean Signal Momentum per Layer)")
+
+    fig.tight_layout()
+    path = os.path.join(PLOT_DIR, "detector_response_vs_energy.png")
+    fig.savefig(path, dpi=150, facecolor="#050810")
+    print(f"  Saved: {path}")
+    plt.close(fig)
+
+
+# ── Coincidence Rate vs Beam Intensity ────────────────────────────────────────
+
+def compute_coincidence_rate(particles_array, base_efficiency=0.97, tau_ns=50.0):
+    """
+    Coincidence rate = expected triple-coincidence triggers per spill.
+
+    At low intensity: rate grows linearly with beam intensity
+    At high intensity: dead time kills triggers → rate saturates and rolls off
+
+    Formula:
+        true_rate      = N / spill_duration
+        recorded_rate  = true_rate / (1 + true_rate * tau)   [non-paralyzable]
+        coincidences   = recorded_rate * spill_duration * efficiency^3
+                         (efficiency^3 because all 3 layers must fire)
+    """
+    spill_ns   = 400e6   # 400 ms in ns
+    eff3       = base_efficiency ** 3  # triple coincidence efficiency
+
+    coincidences = []
+    for n in particles_array:
+        true_rate     = n / spill_ns
+        recorded_rate = true_rate / (1 + true_rate * tau_ns)
+        n_recorded    = recorded_rate * spill_ns
+        coincidences.append(n_recorded * eff3)
+
+    return np.array(coincidences)
+
+
+def plot_coincidence_rate(particles_array, coinc_rates):
+    fig, ax = plt.subplots(figsize=(7, 4.5), facecolor="#050810")
+
+    ax.loglog(particles_array, coinc_rates,
+              "-", color="#00e676", lw=2.5)
+    ax.fill_between(particles_array, coinc_rates, 1,
+                    alpha=0.08, color="#00e676")
+
+    # Mark the saturation region — where dead time becomes significant (>10%)
+    spill_ns = 400e6
+    tau_ns   = 50.0
+    n_10pct  = 0.10 / (tau_ns / spill_ns * (1 - 0.10))  # N where D=10%
+    ax.axvline(x=n_10pct, color="#ffd60a", linestyle="--", lw=1.2, alpha=0.8,
+               label=f"10% dead time (~{n_10pct:.1e} p/spill)")
+
+    ax.legend(facecolor="#0d1117", edgecolor="#1e2a38",
+              labelcolor="#aac4dd", fontsize=9)
+
+    style(ax, "Particles per Spill", "Triple Coincidence Triggers per Spill",
+          "Coincidence Rate vs Beam Intensity\n"
+          r"$\eta^3$ = 91.6%  |  $\tau$ = 50 ns  |  Spill = 400 ms")
+
+    fig.tight_layout()
+    path = os.path.join(PLOT_DIR, "coincidence_rate_vs_intensity.png")
+    fig.savefig(path, dpi=150, facecolor="#050810")
+    print(f"  Saved: {path}")
+    plt.close(fig)
+
+
+def run_extra_analyses(x_vals, eff_vals):
+    # --- Detector Response ---
+    print("\n  Computing detector response per layer...")
+    responses = []
+    for p in BEAM_MOMENTA:
+        responses.append(compute_detector_response(p))
+    plot_detector_response(x_vals, responses)
+
+    # --- Coincidence Rate ---
+    particles = np.logspace(3, 7, 500)   # 10^3 to 10^7
+    coinc     = compute_coincidence_rate(particles, base_efficiency=np.mean(eff_vals))
+    plot_coincidence_rate(particles, coinc)
+    os.makedirs(PLOT_DIR, exist_ok=True)
 def main():
     plt.rcParams.update({"font.family": "monospace"})
-    os.makedirs(PLOT_DIR, exist_ok=True)
+
 
     x_vals   = [mom_to_GeV(p) for p in BEAM_MOMENTA]
     eff_vals = []
@@ -252,11 +447,16 @@ def main():
     plot_efficiency(x_vals, eff_vals)
     plot_latency(x_vals, lat_mean, lat_std)
     plot_secondary(sec_rates)
+    run_dead_time_analysis()
+    run_extra_analyses(x_vals, eff_vals)
 
     print(f"\n  Done! All plots saved to: {PLOT_DIR}/")
     print(f"  - efficiency_vs_momentum.png")
     print(f"  - latency_vs_momentum.png")
-    print(f"  - secondary_fraction_vs_threshold.png\n")
+    print(f"  - secondary_fraction_vs_threshold.png")
+    print(f"  - dead_time_vs_intensity.png")
+    print(f"  - detector_response_vs_energy.png")
+    print(f"  - coincidence_rate_vs_intensity.png\n")
 
 if __name__ == "__main__":
     main()
