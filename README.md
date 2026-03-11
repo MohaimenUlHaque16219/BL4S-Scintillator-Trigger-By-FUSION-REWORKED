@@ -174,6 +174,7 @@ The most important columns for analysis are:
 | **Trigger efficiency** | Fraction of real beam events correctly recorded by the detector |
 | **Coincidence trigger** | Requiring hits in multiple detector layers to confirm a real event |
 | **Latency** | Time delay between the first and last detector signal |
+| **Dead time** |Short period after a detector records an event during which it cannot register another particle|
 | **Secondary particles** | Particles produced by beam interactions inside the detector material |
 | **Momentum threshold** | Minimum momentum required for a hit to be counted as a real signal |
 | **pi+ (pion)** | Positively charged pion — a common secondary particle in accelerator beamlines |
