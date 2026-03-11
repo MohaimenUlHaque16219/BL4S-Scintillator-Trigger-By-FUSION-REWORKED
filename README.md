@@ -2,7 +2,7 @@
 
 **Competition:** Beamline for Schools (BL4S) by CERN  
 **Team:** FUSION REWORKED  
-**Institution:** [Your School Name]  
+**Institution:** DHAKA RESIDENTIAL MODEL COLLEGE 
 **Country:** Bangladesh  
 
 ---
